@@ -1,1 +1,205 @@
-index.html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#080808">
+<title>KRK Gaming Store</title>
+<style>
+:root{--bg:#080808;--panel:#151515;--gold:#f5c542;--muted:#aaa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font-family:Arial,sans-serif}
+header{background:#101010;border-bottom:1px solid #443719;padding:17px 5%;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap}
+.logo{color:var(--gold);font-size:22px;font-weight:900}
+nav{display:flex;gap:18px;flex-wrap:wrap}
+a{color:var(--gold);text-decoration:none}
+nav a{color:#fff}
+.hero{text-align:center;padding:75px 20px;background:radial-gradient(ellipse at top,#45330c,#080808 70%)}
+.hero h1{font-size:clamp(34px,7vw,62px);margin:0 0 15px}
+.gold{color:var(--gold)}
+.hero p{color:#ddd;max-width:600px;margin:0 auto 25px;line-height:1.7}
+.btn{display:inline-block;background:var(--gold);color:#111;padding:12px 18px;border-radius:7px;font-weight:bold;border:0;cursor:pointer}
+.wrap{max-width:1150px;margin:auto;padding:35px 20px}
+h2{color:var(--gold)}
+.toolbar{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}
+input,select{background:#141414;color:white;border:1px solid #574622;padding:12px;border-radius:7px;min-width:0}
+#search{flex:1;min-width:180px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.card{background:var(--panel);border:1px solid #3a301b;border-radius:12px;padding:15px;overflow:hidden}
+.card img{width:100%;height:160px;object-fit:cover;border-radius:8px;background:#222}
+.card h3{color:var(--gold);overflow-wrap:anywhere}
+.card p{color:#ccc;white-space:pre-wrap;overflow-wrap:anywhere}
+.status{background:#171717;padding:12px;border-radius:7px;color:#ccc}
+footer{text-align:center;padding:25px;border-top:1px solid #443719;color:var(--muted)}
+.hidden{display:none}
+@media(max-width:600px){header{justify-content:center}nav{justify-content:center}.hero{padding:55px 16px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">KRK GAMING STORE</div>
+  <nav>
+    <a href="#home">Home</a>
+    <a href="#games">Games</a>
+    <a href="#about">About</a>
+  </nav>
+</header>
+
+<section class="hero" id="home">
+  <h1>LEVEL UP YOUR <span class="gold">GAME</span></h1>
+  <p>Explore games, discover your next adventure and find game information in one place.</p>
+  <a class="btn" href="#games">Explore Games</a>
+</section>
+
+<main>
+<section class="wrap" id="games">
+  <h2>Featured Games</h2>
+  <p style="color:#aaa">Discover games published by KRK Gaming Store.</p>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search games..." aria-label="Search games">
+    <select id="category" aria-label="Filter games">
+      <option value="all">All games</option>
+    </select>
+  </div>
+  <div id="status" class="status" role="status">Connecting to game library...</div>
+  <div id="gameList" class="grid" style="margin-top:18px"></div>
+</section>
+
+<section class="wrap" id="about">
+  <h2>About KRK Gaming Store</h2>
+  <p style="color:#aaa;line-height:1.8">KRK Gaming Store helps players discover games and access their official game pages. Game availability and download links are provided by their respective publishers.</p>
+</section>
+</main>
+
+<footer>© <span id="year"></span> KRK Gaming Store. All rights reserved.</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getFirestore, collection, query, where, getDocs
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAUiRePiSDzXC50hUEad3eZ6NprPS364YE",
+  authDomain: "krk-gaming-store.firebaseapp.com",
+  projectId: "krk-gaming-store",
+  storageBucket: "krk-gaming-store.firebasestorage.app",
+  messagingSenderId: "906609596294",
+  appId: "1:906609596294:web:51f5dab4aaeb33ea7fbe07",
+  measurementId: "G-KZ8G7GKPJ4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+$("year").textContent = new Date().getFullYear();
+
+let games = [];
+
+function validUrl(value, optional = false) {
+  if (!value && optional) return "";
+  try {
+    const u = new URL(value);
+    return ["https:", "http:"].includes(u.protocol) ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function renderGames() {
+  const search = $("search").value.trim().toLowerCase();
+  const category = $("category").value;
+  const list = $("gameList");
+  list.replaceChildren();
+
+  const filtered = games.filter(g => {
+    const matchesText = (g.title || "").toLowerCase().includes(search) ||
+      (g.description || "").toLowerCase().includes(search);
+    const matchesCategory = category === "all" ||
+      (g.category || "Other") === category;
+    return matchesText && matchesCategory;
+  });
+
+  if (!filtered.length) {
+    $("status").textContent = games.length
+      ? "No matching games found. Try another search."
+      : "No published games are available yet.";
+    $("status").classList.remove("hidden");
+    return;
+  }
+
+  $("status").classList.add("hidden");
+
+  for (const game of filtered) {
+    const card = document.createElement("article");
+    card.className = "card";
+
+    const imageUrl = validUrl(game.imageUrl || "", true);
+    if (imageUrl) {
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.alt = (game.title || "Game") + " cover";
+      img.loading = "lazy";
+      img.referrerPolicy = "no-referrer";
+      img.onerror = () => img.remove();
+      card.appendChild(img);
+    }
+
+    const title = document.createElement("h3");
+    title.textContent = game.title || "Untitled Game";
+    card.appendChild(title);
+
+    const cat = document.createElement("p");
+    cat.textContent = "Category: " + (game.category || "Other");
+    card.appendChild(cat);
+
+    const desc = document.createElement("p");
+    desc.textContent = game.description || "Game details coming soon.";
+    card.appendChild(desc);
+
+    const linkUrl = validUrl(game.downloadUrl || "");
+    if (linkUrl) {
+      const link = document.createElement("a");
+      link.className = "btn";
+      link.textContent = "View / Download";
+      link.href = linkUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      card.appendChild(link);
+    }
+
+    list.appendChild(card);
+  }
+}
+
+async function loadGames() {
+  $("status").textContent = "Loading published games...";
+  try {
+    const q = query(collection(db, "games"), where("published", "==", true));
+    const snapshot = await getDocs(q);
+    games = snapshot.docs.map(d => d.data());
+
+    const categories = [...new Set(games.map(g => g.category || "Other"))].sort();
+    for (const category of categories) {
+      const option = document.createElement("option");
+      option.value = category;
+      option.textContent = category;
+      $("category").appendChild(option);
+    }
+
+    renderGames();
+  } catch (error) {
+    console.error("Firebase game loading error:", error);
+    $("status").textContent =
+      "Games load nahi huay. Firebase project aur Firestore Rules check karein.";
+  }
+}
+
+$("search").addEventListener("input", renderGames);
+$("category").addEventListener("change", renderGames);
+loadGames();
+</script>
+</body>
+</html>
+
