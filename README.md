@@ -1,0 +1,1 @@
+# krk-gaming-store-web
