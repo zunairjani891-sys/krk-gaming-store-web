@@ -164,6 +164,9 @@ function renderGames() {
       link.className = "btn";
       link.textContent = "View / Download";
       link.href = linkUrl;
+      link.addEventListener("click", () => {
+  console.log("Download clicked:", game.title);
+});
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       card.appendChild(link);
